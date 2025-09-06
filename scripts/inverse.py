@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 import torch
 from jordan_scatter.helpers import LoggerManager
+
 from jordan_scatter import jordan_scatter
 def parse_args():
     parser = argparse.ArgumentParser(description="Inverse the jordan scatter coefficients with config")
@@ -15,19 +16,20 @@ def parse_args():
     return parser.parse_args()
 
 def main():
-    # Read config
-    args = parse_args()
-    config = load_config(args.config)
-
-    # Create output folder and save config
+    # Create output folder
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     exp_dir = os.path.join("experiments", f"run-{timestamp}")
     os.makedirs(exp_dir, exist_ok=True)
-    save_config(exp_dir, config)
 
     # init logger
     logger = LoggerManager.get_logger(log_dir=exp_dir)
     logger.info("Start log:")
+
+    # Read config and backup config
+    args = parse_args()
+    config = load_config(args.config)
+    save_config(exp_dir, config)
+
     # set up device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
