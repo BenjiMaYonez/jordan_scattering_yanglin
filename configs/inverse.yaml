@@ -1,0 +1,8 @@
+# model setting
+wavelet: morlet
+max_scale: 5
+nb_orients: 2
+depth: 3
+
+# others
+full_inverse: false

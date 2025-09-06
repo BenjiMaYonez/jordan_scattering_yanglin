@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jordan_scatter"
+version = "0.1.0"
+description = "Invertible/Jordan Scattering Net"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    
+]
+
+[tool.setuptools.packages.find]
+where = ["."]

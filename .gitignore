@@ -1,0 +1,9 @@
+**/.ipynb_checkpoints
+**/data
+**/__pycache__
+**/test
+**/*.egg-info
+**/experiments/*
+**/.idea
+**/.DS_Store
+**/.vscode
