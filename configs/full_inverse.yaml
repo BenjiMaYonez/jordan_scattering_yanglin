@@ -3,6 +3,7 @@ wavelet: morlet
 max_scale: 3
 nb_orients: 2
 depth: 3
+normalize_wavelets: true
 
 # others
 full_inverse: true

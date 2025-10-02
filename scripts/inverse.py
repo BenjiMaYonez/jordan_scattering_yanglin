@@ -42,9 +42,9 @@ def main():
         device_name = "CPU"
     logger.info(f"Using device: {device} ({device_name})")
 
-    # Load images
+    # Load images (keep on CPU for graceful fallback)
     image_dir = os.path.join("images")
-    images = load_images(image_dir).to(device)
+    images = load_images(image_dir)
     batch, channel, image_size, image_size2 = images.shape
     image_shape = channel, image_size,image_size2
     
@@ -53,23 +53,84 @@ def main():
     nb_orients = config["nb_orients"]
     depth = config["depth"]
     wavelet = config["wavelet"]
-    model = jordan_scatter(max_scale, nb_orients, image_shape, depth, wavelet=wavelet).to(device)
-
-    # Running
-    logger.info("Run forward...")
-    images = images.reshape(batch, channel, 1, 1, image_size, image_size)
-    output, img = model(images)
-
-    full_inverse = config["full_inverse"]
-    if full_inverse:
-        logger.info('Run lossless inversion...')
-        rec_img = model.inverse(output, img)
-        save_images(exp_dir, rec_img.real)
+    normalize_wavelets = config.get("normalize_wavelets", True)
+    env_limit = os.environ.get("JORDAN_DEVICE_TENSOR_LIMIT_GB")
+    if env_limit is not None:
+        try:
+            tensor_limit_bytes = int(float(env_limit) * (1024 ** 3))
+        except ValueError:
+            raise ValueError("JORDAN_DEVICE_TENSOR_LIMIT_GB must be numeric")
+    elif device.type != "cpu":
+        tensor_limit_bytes = 8 * (1024 ** 3)
     else:
-        logger.info('Run lossy inversion...')
-        img = torch.zeros_like(img)
-        rec_img = model.inverse(output, img)
-        save_images(exp_dir, rec_img.real)
+        tensor_limit_bytes = None
+
+    model = jordan_scatter(
+        max_scale,
+        nb_orients,
+        image_shape,
+        depth,
+        wavelet=wavelet,
+        normalize_wavelets=normalize_wavelets,
+        device_tensor_limit_bytes=tensor_limit_bytes,
+    )
+
+    # Attempt execution on preferred device, fall back to CPU on memory pressure
+    target_devices = [(device, device_name)]
+    if device.type != "cpu":
+        target_devices.append((torch.device("cpu"), "CPU"))
+
+    last_error = None
+    rec_img = None
+    actual_device = None
+    for target_device, target_name in target_devices:
+        try:
+            logger.info(f"Run forward on {target_name}...")
+            model = model.to(target_device)
+            images_device = images.to(target_device)
+            images_device = images_device.reshape(batch, channel, 1, 1, image_size, image_size)
+
+            with torch.no_grad():
+                output, img = model(images_device)
+
+                full_inverse = config["full_inverse"]
+                if full_inverse:
+                    logger.info('Run lossless inversion...')
+                    rec_img = model.inverse(output, img)
+                else:
+                    logger.info('Run lossy inversion...')
+                    img = torch.zeros_like(img)
+                    rec_img = model.inverse(output, img)
+
+            actual_device = target_name
+            break
+        except RuntimeError as err:
+            err_msg = str(err).lower()
+            oom_signature = (
+                "out of memory" in err_msg
+                or "command buffer exited" in err_msg
+                or "invalid buffer size" in err_msg
+            )
+            if target_device.type == "cpu" or not oom_signature:
+                raise
+            last_error = err
+            logger.warning(f"{target_name} ran out of memory, retrying on CPU...")
+            if target_device.type == "cuda" and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            if target_device.type == "mps" and hasattr(torch, "mps"):
+                torch.mps.empty_cache()
+            model = model.to(torch.device("cpu"))
+        finally:
+            if 'images_device' in locals():
+                del images_device
+
+    if rec_img is None:
+        raise last_error if last_error is not None else RuntimeError("Forward pass did not produce an output.")
+
+    if actual_device and actual_device != device_name:
+        logger.info(f"Final computation ran on {actual_device}")
+
+    save_images(exp_dir, rec_img.real)
 
 if __name__ == "__main__":
     main()

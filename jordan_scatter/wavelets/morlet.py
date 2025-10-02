@@ -3,7 +3,7 @@ from scipy.fft import fft2, ifft2
 import torch
 
 
-def filter_bank(J, L, N):
+def filter_bank(J, L, N, normalize=True):
     """
         Builds in Fourier the Morlet filters 
         Parameters
@@ -34,13 +34,14 @@ def filter_bank(J, L, N):
     # drop the imaginary part, it is zero anyway
     hatphi = torch.from_numpy(phi_signal_fourier).to(dtype=torch.float32)
 
-    # normalized, Parseval Frame
-    hatphi_square = hatphi**2
-    hatpsi_square = hatpsi**2
-    unity = hatpsi_square.sum(dim=(0,1)) + hatphi_square
-    hatphi /= torch.sqrt(unity)
-    hatpsi /= torch.sqrt(unity)
-    
+    if normalize:
+        # normalized, Parseval Frame
+        hatphi_square = hatphi**2
+        hatpsi_square = hatpsi**2
+        unity = hatpsi_square.sum(dim=(0,1)) + hatphi_square
+        hatphi /= torch.sqrt(unity)
+        hatpsi /= torch.sqrt(unity)
+
     return {"lp": hatphi, "hp":hatpsi}
 
 

@@ -1,0 +1,11 @@
+# Default configuration for plotting Fourier-domain wavelet filters
+wavelet: meyer
+max_scale: 3
+nb_orients: 8
+image_size: 256
+max_per_figure: 10
+columns: 4
+cmap: viridis
+show: false
+output_dir: experiments
+run_prefix: filters

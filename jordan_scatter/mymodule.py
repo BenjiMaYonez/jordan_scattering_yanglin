@@ -28,17 +28,27 @@ class mymodule(nn.Module):
         x_hat = fft2(x)
         x_lp_hat = x_hat*self.lp
         x_hp_hat = x_hat*self.hp
+        del x_hat
 
         # compute jordan
         x_hp = ifft2(x_hp_hat)
-        x_hp_real_pos = torch.relu(x_hp.real)
-        x_hp_real_neg = torch.relu(-x_hp.real)
-        x_hp_imag_pos = torch.relu(x_hp.imag)
-        x_hp_imag_neg = torch.relu(-x_hp.imag)
-        x_jordan = torch.cat([x_hp_real_pos, x_hp_real_neg, 
-                              x_hp_imag_pos, x_hp_imag_neg], dim=1)
-        channel = x_jordan.size(1)*x_jordan.size(2)*x_jordan.size(3)
-        y = x_jordan.reshape(x_jordan.size(0), channel, 1, 1, self.image_size, self.image_size)
+        del x_hp_hat
+
+        x_hp_real = x_hp.real
+        x_hp_imag = x_hp.imag
+        del x_hp
+
+        batch, channel, scales, orients, height, width = x_hp_real.shape
+        y = torch.empty((batch, channel * 4, scales, orients, height, width), device=x_hp_real.device, dtype=x_hp_real.dtype)
+
+        torch.clamp(x_hp_real, min=0, out=y[:, :channel])
+        torch.clamp(x_hp_real, max=0, out=y[:, channel:2*channel]).neg_()
+        torch.clamp(x_hp_imag, min=0, out=y[:, 2*channel:3*channel])
+        torch.clamp(x_hp_imag, max=0, out=y[:, 3*channel:]).neg_()
+
+        del x_hp_real, x_hp_imag
+
+        y = y.reshape(batch, -1, 1, 1, height, width)
         return x_lp_hat, y
 
     def inverse(self, x_lp_hat, y):

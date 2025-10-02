@@ -18,6 +18,8 @@ Invertible: `python scripts/inverse.py --config configs/inverse.yaml`
 
 - Use Python 3.10+ and install a PyTorch build with Metal backend (e.g. `pip3 install --upgrade torch torchvision torchaudio`).
 - On macOS 12.3+ with an M-series chip, the scripts will automatically prefer the GPU; `scripts/inverse.py` now falls back to CUDA, then MPS, then CPU.
+- The runner will automatically retry on CPU if the GPU backend reports an out-of-memory or Metal command-buffer fault, so long jobs still finish.
+- You can limit the largest tensor kept on the accelerator by exporting `JORDAN_DEVICE_TENSOR_LIMIT_GB` (defaults to 8 GiB for CUDA/MPS); once the estimate is larger than this, the model transparently moves the remaining layers to CPU.
 - Export `PYTORCH_ENABLE_MPS_FALLBACK=1` to allow unsupported ops (such as some FFT kernels) to transparently run on CPU while keeping everything else on the GPU: `export PYTORCH_ENABLE_MPS_FALLBACK=1`.
 - You can verify the device that will be used with:
   ```python

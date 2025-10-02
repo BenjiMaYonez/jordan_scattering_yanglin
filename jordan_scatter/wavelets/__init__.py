@@ -1,6 +1,15 @@
 from .morlet import filter_bank as morlet
+from .meyer import filter_bank as meyer
 from ..helpers import LoggerManager
-def filter_bank(wavelet_name:str, max_scale:int, nb_orients:int, image_size:int):
+
+
+def filter_bank(
+    wavelet_name: str,
+    max_scale: int,
+    nb_orients: int,
+    image_size: int,
+    normalize: bool = True,
+):
     """
     Returns a dictionary, key "lp": low pass filter
                           key "hp": high pass filter
@@ -15,13 +24,14 @@ def filter_bank(wavelet_name:str, max_scale:int, nb_orients:int, image_size:int)
 
     wavelets_map = {
         "morlet": morlet,
+        "meyer": meyer,
     }
     
     if wavelet_name not in wavelets_map:
         raise ValueError(f"Unknown wavelet: {wavelet_name}")
     
     wavelet_func = wavelets_map[wavelet_name]
-    return wavelet_func(max_scale, nb_orients, image_size)
+    return wavelet_func(max_scale, nb_orients, image_size, normalize=normalize)
 
 
 

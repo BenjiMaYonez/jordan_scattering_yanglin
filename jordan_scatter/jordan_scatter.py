@@ -8,6 +8,8 @@ class jordan_scatter(nn.Module):
                        image_shape:tuple,        # image_channel, Height, Width
                        depth:int,                # depth of the network
                        wavelet:str = "morlet",   # Choose wavelet to use
+                       normalize_wavelets:bool = True,
+                       device_tensor_limit_bytes:int | None = None,
                 ):
         super().__init__()
         self.max_scale = max_scale
@@ -15,6 +17,8 @@ class jordan_scatter(nn.Module):
         self.image_channel, self.image_size, self.image_size2 = image_shape
         self.wavelet = wavelet
         self.depth = depth
+        self.normalize_wavelets = normalize_wavelets
+        self.device_tensor_limit_bytes = device_tensor_limit_bytes
 
         # check valid parameter
         if self.image_size != self.image_size2:
@@ -29,7 +33,13 @@ class jordan_scatter(nn.Module):
         self.set_modules()
 
     def set_filters(self):
-        filters = filter_bank(self.wavelet, self.max_scale, self.nb_orients, self.image_size)
+        filters = filter_bank(
+            self.wavelet,
+            self.max_scale,
+            self.nb_orients,
+            self.image_size,
+            normalize=self.normalize_wavelets,
+        )
         self.register_buffer("hp", filters["hp"])
         self.register_buffer("lp", filters["lp"])
 
@@ -45,7 +55,30 @@ class jordan_scatter(nn.Module):
         
     def forward(self, img):
         output = []
-        for module in self.module_list:
+        logger = LoggerManager.get_logger()
+        for layer_idx, module in enumerate(self.module_list):
+            if (
+                img.device.type != "cpu"
+                and self.device_tensor_limit_bytes is not None
+            ):
+                next_channels = img.size(1) * self.max_scale * self.nb_orients * 4
+                next_bytes = (
+                    img.size(0)
+                    * next_channels
+                    * self.image_size
+                    * self.image_size
+                    * img.element_size()
+                )
+                if next_bytes > self.device_tensor_limit_bytes:
+                    logger.warning(
+                        "Layer %d tensor would require %.2f GiB on %s; continuing on CPU",
+                        layer_idx,
+                        next_bytes / (1024 ** 3),
+                        img.device,
+                    )
+                    self.to("cpu")
+                    img = img.cpu()
+                    output = [tensor.cpu() for tensor in output]
             x_lp_hat, img = module(img)
             output.append(x_lp_hat)
         return output, img

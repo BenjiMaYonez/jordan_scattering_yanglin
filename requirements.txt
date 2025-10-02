@@ -5,6 +5,7 @@ scipy
 torch
 torchvision
 pillow
+matplotlib
 
 # Optional: for logging (standard library, but listed for clarity)
 # logging
