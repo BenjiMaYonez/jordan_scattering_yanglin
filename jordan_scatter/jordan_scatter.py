@@ -38,7 +38,7 @@ class jordan_scatter(nn.Module):
         nb_orients = self.nb_orients
         image_size = self.image_size
         filters = {"hp": self.hp, "lp": self.lp} # must first register in set_filters then do this
-        self.module_list = []
+        self.module_list = nn.ModuleList()
         for layer in range(self.depth):
             module = mymodule(max_scale, nb_orients, image_size, filters)
             self.module_list.append(module)
@@ -58,4 +58,3 @@ class jordan_scatter(nn.Module):
         logger.info(f"Finish inversion, shape: {img.shape}. Return squeezed dim=(-4, -3).")
         return img.squeeze(-3).squeeze(-3)
             
-

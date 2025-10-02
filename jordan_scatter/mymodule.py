@@ -10,8 +10,9 @@ class mymodule(nn.Module):
         self.max_scale = max_scale
         self.nb_orients = nb_orients
         self.image_size = image_size
-        self.lp = filters["lp"] # low pass filter
-        self.hp = filters["hp"] # high pass filter
+        # keep filters as buffers so they follow the module to the active device
+        self.register_buffer("lp", filters["lp"].clone())
+        self.register_buffer("hp", filters["hp"].clone())
 
         # verify shape
         if self.hp.shape != (max_scale, nb_orients, image_size, image_size):

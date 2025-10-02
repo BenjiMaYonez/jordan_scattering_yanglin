@@ -28,11 +28,11 @@ def filter_bank(J, L, N):
                 3.0 / 4.0 * np.pi /2**j) # xi
             psi_signal_fourier = np.real(fft2(psi_signal))
             # drop the imaginary part, it is zero anyway
-            hatpsi[j, theta] = torch.tensor(psi_signal_fourier)
+            hatpsi[j, theta] = torch.from_numpy(psi_signal_fourier).to(dtype=torch.float32)
     phi_signal = gabor_2d(M, N, 0.8 * 2**(J-1), 0, 0)
     phi_signal_fourier = np.real(fft2(phi_signal))
     # drop the imaginary part, it is zero anyway
-    hatphi = torch.tensor(phi_signal_fourier)
+    hatphi = torch.from_numpy(phi_signal_fourier).to(dtype=torch.float32)
 
     # normalized, Parseval Frame
     hatphi_square = hatphi**2

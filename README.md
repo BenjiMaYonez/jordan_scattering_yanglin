@@ -13,3 +13,21 @@ Before running, install the package in your python environment `pip install -e .
 Sanity Check, lossless inversion: `python scripts/inverse.py --config configs/full_inverse.yaml`
 
 Invertible: `python scripts/inverse.py --config configs/inverse.yaml`
+
+## Apple Silicon GPU support
+
+- Use Python 3.10+ and install a PyTorch build with Metal backend (e.g. `pip3 install --upgrade torch torchvision torchaudio`).
+- On macOS 12.3+ with an M-series chip, the scripts will automatically prefer the GPU; `scripts/inverse.py` now falls back to CUDA, then MPS, then CPU.
+- Export `PYTORCH_ENABLE_MPS_FALLBACK=1` to allow unsupported ops (such as some FFT kernels) to transparently run on CPU while keeping everything else on the GPU: `export PYTORCH_ENABLE_MPS_FALLBACK=1`.
+- You can verify the device that will be used with:
+  ```python
+  python3 - <<'PY'
+  import torch
+  if torch.cuda.is_available():
+      print('CUDA available:', torch.cuda.get_device_name())
+  elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+      print('MPS available')
+  else:
+      print('Falling back to CPU')
+  PY
+  ```

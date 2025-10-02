@@ -1,0 +1,13 @@
+# Core dependencies
+pyyaml
+numpy
+scipy
+torch
+torchvision
+pillow
+
+# Optional: for logging (standard library, but listed for clarity)
+# logging
+
+# If you use Jupyter notebooks, you may want:
+# jupyter

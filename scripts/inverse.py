@@ -31,12 +31,20 @@ def main():
     save_config(exp_dir, config)
 
     # set up device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Using device: {device}")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        device_name = torch.cuda.get_device_name(device)
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = torch.device("mps")
+        device_name = "Apple Metal (MPS)"
+    else:
+        device = torch.device("cpu")
+        device_name = "CPU"
+    logger.info(f"Using device: {device} ({device_name})")
 
     # Load images
     image_dir = os.path.join("images")
-    images = load_images(image_dir)
+    images = load_images(image_dir).to(device)
     batch, channel, image_size, image_size2 = images.shape
     image_shape = channel, image_size,image_size2
     
@@ -45,7 +53,7 @@ def main():
     nb_orients = config["nb_orients"]
     depth = config["depth"]
     wavelet = config["wavelet"]
-    model = jordan_scatter(max_scale, nb_orients, image_shape, depth, wavelet=wavelet)
+    model = jordan_scatter(max_scale, nb_orients, image_shape, depth, wavelet=wavelet).to(device)
 
     # Running
     logger.info("Run forward...")
