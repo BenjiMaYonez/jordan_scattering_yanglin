@@ -30,6 +30,9 @@ def main():
     config = load_config(args.config)
     save_config(exp_dir, config)
 
+    optim_config = config.get("optimizations", {})
+    force_float16 = bool(optim_config.get("force_float16", False))
+
     # set up device
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -56,11 +59,9 @@ def main():
     depth = config["depth"]
     wavelet = config["wavelet"]
     normalize_wavelets = config.get("normalize_wavelets", True)
-    optim_config = config.get("optimizations", {})
     use_mixed_precision = bool(optim_config.get("mixed_precision", False))
     use_disk_cache = bool(optim_config.get("disk_cache", False))
     disk_cache_dir = optim_config.get("disk_cache_dir")
-    force_float16 = bool(optim_config.get("force_float16", False))
     env_limit = os.environ.get("JORDAN_DEVICE_TENSOR_LIMIT_GB")
     if env_limit is not None:
         try:
@@ -99,11 +100,6 @@ def main():
             try:
                 logger.info(f"Run forward on {target_name}...")
                 model = model.to(target_device)
-                if force_float16 and target_device.type != "cpu":
-                    model = model.to(dtype=torch.float16)
-                else:
-                    model = model.to(dtype=torch.float32)
-
                 images_device = images.to(target_device)
                 if force_float16 and target_device.type != "cpu":
                     images_device = images_device.to(torch.float16)
@@ -142,7 +138,6 @@ def main():
                 if target_device.type == "mps" and hasattr(torch, "mps"):
                     torch.mps.empty_cache()
                 model = model.to(torch.device("cpu"))
-                model = model.to(dtype=torch.float32)
             finally:
                 if 'images_device' in locals():
                     del images_device

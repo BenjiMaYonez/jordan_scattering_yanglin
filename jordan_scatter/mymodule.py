@@ -35,6 +35,9 @@ class mymodule(nn.Module):
         compute_real_dtype = orig_real_dtype
         if use_amp and orig_real_dtype == torch.float32:
             compute_real_dtype = torch.float16
+        supports_half_fft = x.device.type == "cuda"
+        if compute_real_dtype == torch.float16 and not supports_half_fft:
+            compute_real_dtype = torch.float32
         if compute_real_dtype != orig_real_dtype:
             x = x.to(compute_real_dtype)
         # compute high pass and low pass
@@ -84,6 +87,9 @@ class mymodule(nn.Module):
         compute_real_dtype = orig_real_dtype
         if use_amp and orig_real_dtype == torch.float32:
             compute_real_dtype = torch.float16
+        supports_half_fft = y.device.type == "cuda"
+        if compute_real_dtype == torch.float16 and not supports_half_fft:
+            compute_real_dtype = torch.float32
         if compute_real_dtype != orig_real_dtype:
             y = y.to(compute_real_dtype)
 
