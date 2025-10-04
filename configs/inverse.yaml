@@ -2,7 +2,7 @@
 wavelet: meyer
 max_scale: 2
 nb_orients: 3
-depth: 4
+depth: 2
 normalize_wavelets: false
 
 # others
@@ -10,4 +10,5 @@ full_inverse: false
 
 optimizations:
   mixed_precision: false
+  force_float16: true
   disk_cache: false

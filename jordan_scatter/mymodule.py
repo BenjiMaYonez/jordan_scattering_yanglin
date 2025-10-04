@@ -75,6 +75,25 @@ class mymodule(nn.Module):
         if (x_lp_hat.dim() != 6 or y.dim() != 6):
             raise ValueError(f"Expected inputs to have 6 dims, but get {x_lp_hat.dim()} and {y.dim()}")
 
+        orig_real_dtype = y.dtype
+        use_amp = (
+            self.mixed_precision
+            and y.device.type in {"cuda", "mps"}
+            and orig_real_dtype in {torch.float32, torch.float16}
+        )
+        compute_real_dtype = orig_real_dtype
+        if use_amp and orig_real_dtype == torch.float32:
+            compute_real_dtype = torch.float16
+        if compute_real_dtype != orig_real_dtype:
+            y = y.to(compute_real_dtype)
+
+        if x_lp_hat.is_complex():
+            target_complex = torch.complex64 if compute_real_dtype == torch.float32 else torch.complex32
+            if x_lp_hat.dtype != target_complex:
+                x_lp_hat = x_lp_hat.to(target_complex)
+        else:
+            x_lp_hat = x_lp_hat.to(compute_real_dtype)
+
         # inverse jordan
         x_jordan = y.reshape(1, -1, self.max_scale, self.nb_orients, self.image_size, self.image_size)
         if x_jordan.size(1)%4 != 0:
@@ -85,9 +104,14 @@ class mymodule(nn.Module):
         x_hp_hat = fft2(x_hp)
 
         # inverse wavelet
-        recx_hp_hat = (x_hp_hat*self.hp).sum(dim=(-4,-3), keepdim=True)
-        recx_lp_hat = x_lp_hat*self.lp
+        hp = self.hp.to(x_hp_hat.dtype)
+        lp = self.lp.to(x_lp_hat.dtype)
+        recx_hp_hat = (x_hp_hat*hp).sum(dim=(-4,-3), keepdim=True)
+        recx_lp_hat = x_lp_hat*lp
         x_hat = recx_hp_hat + recx_lp_hat
         x = ifft2(x_hat)
 
-        return x.real
+        real_result = x.real
+        if compute_real_dtype != orig_real_dtype:
+            real_result = real_result.to(orig_real_dtype)
+        return real_result

@@ -11,6 +11,7 @@ class jordan_scatter(nn.Module):
                        normalize_wavelets:bool = True,
                        device_tensor_limit_bytes:int | None = None,
                        use_mixed_precision: bool = False,
+                       force_float16: bool = False,
                        use_disk_cache: bool = False,
                        disk_cache_dir: str | None = None,
                 ):
@@ -23,6 +24,7 @@ class jordan_scatter(nn.Module):
         self.normalize_wavelets = normalize_wavelets
         self.device_tensor_limit_bytes = device_tensor_limit_bytes
         self.use_mixed_precision = use_mixed_precision
+        self.force_float16 = force_float16
         self.use_disk_cache = use_disk_cache
         self._disk_cache_dir = disk_cache_dir
         self._disk_cache: LayerDiskCache | None = None
@@ -62,7 +64,7 @@ class jordan_scatter(nn.Module):
                 nb_orients,
                 image_size,
                 filters,
-                mixed_precision=self.use_mixed_precision,
+                mixed_precision=(self.use_mixed_precision or self.force_float16),
             )
             self.module_list.append(module)
         

@@ -10,4 +10,5 @@ full_inverse: true
 
 optimizations:
   mixed_precision: false
+  force_float16: false
   disk_cache: false

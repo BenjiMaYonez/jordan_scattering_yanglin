@@ -41,6 +41,8 @@ def main():
         device = torch.device("cpu")
         device_name = "CPU"
     logger.info(f"Using device: {device} ({device_name})")
+    if force_float16 and device.type == "cpu":
+        logger.info("force_float16 requested but no accelerator detected; staying in float32 on CPU.")
 
     # Load images (keep on CPU for graceful fallback)
     image_dir = os.path.join("images")
@@ -58,6 +60,7 @@ def main():
     use_mixed_precision = bool(optim_config.get("mixed_precision", False))
     use_disk_cache = bool(optim_config.get("disk_cache", False))
     disk_cache_dir = optim_config.get("disk_cache_dir")
+    force_float16 = bool(optim_config.get("force_float16", False))
     env_limit = os.environ.get("JORDAN_DEVICE_TENSOR_LIMIT_GB")
     if env_limit is not None:
         try:
@@ -78,6 +81,7 @@ def main():
         normalize_wavelets=normalize_wavelets,
         device_tensor_limit_bytes=tensor_limit_bytes,
         use_mixed_precision=use_mixed_precision,
+        force_float16=force_float16,
         use_disk_cache=use_disk_cache,
         disk_cache_dir=disk_cache_dir,
     )
@@ -95,7 +99,16 @@ def main():
             try:
                 logger.info(f"Run forward on {target_name}...")
                 model = model.to(target_device)
+                if force_float16 and target_device.type != "cpu":
+                    model = model.to(dtype=torch.float16)
+                else:
+                    model = model.to(dtype=torch.float32)
+
                 images_device = images.to(target_device)
+                if force_float16 and target_device.type != "cpu":
+                    images_device = images_device.to(torch.float16)
+                else:
+                    images_device = images_device.to(torch.float32)
                 images_device = images_device.reshape(batch, channel, 1, 1, image_size, image_size)
 
                 with torch.no_grad():
@@ -129,6 +142,7 @@ def main():
                 if target_device.type == "mps" and hasattr(torch, "mps"):
                     torch.mps.empty_cache()
                 model = model.to(torch.device("cpu"))
+                model = model.to(dtype=torch.float32)
             finally:
                 if 'images_device' in locals():
                     del images_device
@@ -139,7 +153,7 @@ def main():
         if actual_device and actual_device != device_name:
             logger.info(f"Final computation ran on {actual_device}")
 
-        save_images(exp_dir, rec_img.real)
+        save_images(exp_dir, rec_img.real.to(torch.float32))
     finally:
         if hasattr(model, "cleanup_cache"):
             model.cleanup_cache()
