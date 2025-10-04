@@ -1,5 +1,5 @@
 
 from .logger import LoggerManager
-from .disk_cache import LayerDiskCache
+from .disk_cache import LayerDiskCache, CachedTensorRef
 
-__all__ = ["LoggerManager", "LayerDiskCache"]
+__all__ = ["LoggerManager", "LayerDiskCache", "CachedTensorRef"]

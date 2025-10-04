@@ -5,11 +5,13 @@ from torch.fft import fft2, ifft2
 class mymodule(nn.Module):
     def __init__(self, max_scale:int, nb_orients:int, # number of scales and orientations
                  image_size:int, # square image, width=height
-                 filters):
+                 filters,
+                 mixed_precision: bool = False):
         super().__init__()
         self.max_scale = max_scale
         self.nb_orients = nb_orients
         self.image_size = image_size
+        self.mixed_precision = mixed_precision
         # keep filters as buffers so they follow the module to the active device
         self.register_buffer("lp", filters["lp"].clone())
         self.register_buffer("hp", filters["hp"].clone())
@@ -24,10 +26,23 @@ class mymodule(nn.Module):
         # verify the shape
         if x.dim() != 6:
             raise ValueError("Input should have 6 dimensions")
+        orig_real_dtype = x.dtype
+        use_amp = (
+            self.mixed_precision
+            and x.device.type in {"cuda", "mps"}
+            and orig_real_dtype in {torch.float32, torch.float16}
+        )
+        compute_real_dtype = orig_real_dtype
+        if use_amp and orig_real_dtype == torch.float32:
+            compute_real_dtype = torch.float16
+        if compute_real_dtype != orig_real_dtype:
+            x = x.to(compute_real_dtype)
         # compute high pass and low pass
         x_hat = fft2(x)
-        x_lp_hat = x_hat*self.lp
-        x_hp_hat = x_hat*self.hp
+        lp = self.lp.to(x_hat.dtype)
+        hp = self.hp.to(x_hat.dtype)
+        x_lp_hat = x_hat*lp
+        x_hp_hat = x_hat*hp
         del x_hat
 
         # compute jordan
@@ -49,6 +64,10 @@ class mymodule(nn.Module):
         del x_hp_real, x_hp_imag
 
         y = y.reshape(batch, -1, 1, 1, height, width)
+        if compute_real_dtype != orig_real_dtype:
+            y = y.to(orig_real_dtype)
+            target_complex = torch.complex64 if orig_real_dtype == torch.float32 else torch.complex32
+            x_lp_hat = x_lp_hat.to(target_complex)
         return x_lp_hat, y
 
     def inverse(self, x_lp_hat, y):

@@ -1,8 +1,18 @@
 import os
+import shutil
 import tempfile
+from dataclasses import dataclass
 from typing import Optional
 
 import torch
+
+
+@dataclass
+class CachedTensorRef:
+    cache_path: str
+
+    def load(self, device: torch.device) -> torch.Tensor:
+        return torch.load(self.cache_path, map_location=device)
 
 
 class LayerDiskCache:
@@ -12,7 +22,7 @@ class LayerDiskCache:
         self._root_dir = root_dir
         self._prefix = prefix
         self._tmpdir: Optional[str] = None
-        self._handles = []
+        self._refs: list[CachedTensorRef] = []
 
     @property
     def root(self) -> str:
@@ -20,31 +30,16 @@ class LayerDiskCache:
             self._tmpdir = tempfile.mkdtemp(prefix=f"{self._prefix}_", dir=self._root_dir)
         return self._tmpdir
 
-    def save(self, key: str, tensor: torch.Tensor) -> dict:
+    def save(self, key: str, tensor: torch.Tensor) -> CachedTensorRef:
         path = os.path.join(self.root, f"{key}.pt")
         torch.save(tensor, path)
-        self._handles.append(path)
-        return {"cache_path": path, "shape": tuple(tensor.shape)}
-
-    @staticmethod
-    def load(ref: dict, device: torch.device) -> torch.Tensor:
-        path = ref["cache_path"]
-        tensor = torch.load(path, map_location=device)
-        return tensor
+        ref = CachedTensorRef(cache_path=path)
+        self._refs.append(ref)
+        return ref
 
     def cleanup(self) -> None:
-        if not self._handles:
+        if self._tmpdir is None:
             return
-        for path in self._handles:
-            try:
-                os.remove(path)
-            except OSError:
-                pass
-        if self._tmpdir is not None:
-            try:
-                os.rmdir(self._tmpdir)
-            except OSError:
-                pass
-        self._handles.clear()
+        shutil.rmtree(self._tmpdir, ignore_errors=True)
+        self._refs.clear()
         self._tmpdir = None
-
