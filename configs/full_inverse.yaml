@@ -7,3 +7,7 @@ normalize_wavelets: true
 
 # others
 full_inverse: true
+
+optimizations:
+  mixed_precision: false
+  disk_cache: false

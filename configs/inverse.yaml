@@ -1,9 +1,13 @@
 # model setting
 wavelet: meyer
 max_scale: 2
-nb_orients: 6
-depth: 3
+nb_orients: 3
+depth: 4
 normalize_wavelets: false
 
 # others
 full_inverse: false
+
+optimizations:
+  mixed_precision: false
+  disk_cache: false
